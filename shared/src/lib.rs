@@ -2,6 +2,8 @@ use colored::*;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
+pub const LOCAL_ADDRESS: &str = "localhost:8080";
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Message {
     UserMessage(String, SocketAddr),

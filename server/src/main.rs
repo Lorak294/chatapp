@@ -1,4 +1,4 @@
-use shared::Message;
+use shared::{Message, LOCAL_ADDRESS};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpListener,
@@ -7,13 +7,14 @@ use tokio::{
 
 #[tokio::main]
 async fn main() {
-    let listener = TcpListener::bind("localhost:8080").await.unwrap();
+    let listener = TcpListener::bind(LOCAL_ADDRESS).await.unwrap();
     //let (tx, _rx) = broadcast::channel::<String>(10);
     let (tx, _rx) = broadcast::channel::<Message>(10);
 
     loop {
         // blocking accept
         let (mut socket, address) = listener.accept().await.expect("failed during accepting.");
+        println!("Accepted new connection from {}", address);
         // channel setup
         let tx = tx.clone();
         let mut rx = tx.subscribe();
@@ -22,8 +23,6 @@ async fn main() {
             let (reader, mut writer) = socket.split();
             let mut reader = BufReader::new(reader);
             let mut line = String::new();
-            //let stdio_reader = BufReader::new(stdin());
-            //let stdio_buff = Vec::new();
 
             loop {
                 tokio::select! {

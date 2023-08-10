@@ -1,67 +1,55 @@
-use std::{
-    io::{self, ErrorKind, Read, Write},
+use std::io;
+
+use shared::{Message, LOCAL_ADDRESS};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
-    sync::mpsc::{self, TryRecvError},
-    thread,
-    time::Duration,
+    sync::mpsc,
 };
 
-const LOCAL: &str = "127.0.0.1:8080";
-const MSG_SIZE: usize = 64;
+#[tokio::main]
+async fn main() {
+    let mut socket = TcpStream::connect(LOCAL_ADDRESS).await.unwrap();
+    let myaddress = socket.local_addr().unwrap();
+    //let hostaddress = socket.peer_addr().unwrap();
+    let (tx, mut rx) = mpsc::channel::<Message>(10);
 
-fn sleep() {
-    thread::sleep(Duration::from_millis(100));
-}
+    tokio::spawn(async move {
+        loop {
+            let (reader, mut writer) = socket.split();
+            let mut reader = BufReader::new(reader);
+            let mut line = String::new();
+            tokio::select! {
+                // prinitng received message
+                res = reader.read_line(&mut line) => {
+                    let bytes_read = res.unwrap();
+                        if bytes_read == 0 {
+                            break;
+                        }
+                        let msg = Message::deserialize(line.clone());
+                        msg.print();
+                        line.clear();
+                }
 
-fn main() {
-    let mut client = TcpStream::connect(LOCAL).expect("Stream failed to connect.");
-    client
-        .set_nonblocking(true)
-        .expect("failed to initiate non-blocking mode.");
+                // sending message transmited from stdin
+                res = rx.recv() => {
 
-    let (tx, rx) = mpsc::channel::<String>();
-
-    let _th = thread::spawn(move || loop {
-        let mut buff = vec![0; MSG_SIZE];
-
-        match client.read_exact(&mut buff) {
-            Ok(_) => {
-                let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
-                println!("message received: {:?}", msg);
-            }
-            Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
-            Err(_) => {
-                println!("Connection with server terminated.");
-                client
-                    .shutdown(std::net::Shutdown::Both)
-                    .expect("failed shutting down the connection.");
-                break;
+                    let msg = res.unwrap();
+                    writer.write_all(msg.serialize().as_bytes()).await.unwrap();
+                }
             }
         }
-
-        match rx.try_recv() {
-            Ok(msg) => {
-                let mut buff = msg.clone().into_bytes();
-                buff.resize(MSG_SIZE, 0);
-                client.write_all(&buff).expect("writing to socket failed.");
-                println!("message sent: {}", msg);
-            }
-            Err(TryRecvError::Empty) => (),
-            Err(TryRecvError::Disconnected) => break,
-        }
-
-        sleep();
     });
 
     println!("Write a message:");
     loop {
         let mut buff = String::new();
-        io::stdin()
-            .read_line(&mut buff)
-            .expect("reading form stdin failed.");
-        let msg = buff.trim().to_string();
+        io::stdin().read_line(&mut buff).unwrap();
+        let msg_str = buff.trim().to_string();
+        let msg = Message::UserMessage(msg_str.clone(), myaddress);
+        msg.print();
 
-        if msg == ":quit" || tx.send(msg).is_err() {
+        if msg_str == ":quit" || tx.send(msg).await.is_err() {
             break;
         }
     }
