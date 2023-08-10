@@ -6,10 +6,7 @@ use std::{
     time::Duration,
 };
 
-//extern crate colored;
-use colored::*;
-
-const LOCAL: &str = "127.0.0.1:6000";
+const LOCAL: &str = "127.0.0.1:8080";
 const MSG_SIZE: usize = 64;
 
 fn sleep() {
@@ -47,7 +44,7 @@ fn main() {
                 let mut buff = msg.clone().into_bytes();
                 buff.resize(MSG_SIZE, 0);
                 client.write_all(&buff).expect("writing to socket failed.");
-                println!("message sent: {}", msg.blue());
+                println!("message sent: {}", msg);
             }
             Err(TryRecvError::Empty) => (),
             Err(TryRecvError::Disconnected) => break,

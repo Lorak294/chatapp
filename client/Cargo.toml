@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 shared = { path = "../shared" }
-colored = "2.0.4"
+tokio = { version = "1", features = ["full"] }
