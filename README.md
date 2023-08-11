@@ -28,7 +28,7 @@ In other terminal run the client and connect to the server by typing the server 
 # run the client
 cargo run -p client -r
 
-# inisde the application you wil be requested for the server address,you can type ":local"
+# inisde the application you wil be requested for the server address, you can type ":local"
 # to use the hardcoded localhost:8080 for both server and client:
 :local
 ```
