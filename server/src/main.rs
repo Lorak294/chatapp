@@ -8,6 +8,10 @@ use tokio::{
 #[tokio::main]
 async fn main() {
     let listener = TcpListener::bind(LOCAL_ADDRESS).await.unwrap();
+    println!(
+        "Server running on address: {}",
+        listener.local_addr().unwrap()
+    );
     //let (tx, _rx) = broadcast::channel::<String>(10);
     let (tx, _rx) = broadcast::channel::<Message>(10);
 
