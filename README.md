@@ -2,10 +2,10 @@
 Simple console chat server project made with Rust. 
 
 ## Overview
-This project was made to learn some basics about Rust programming languaga and review parrarel programming using TCP sockets.
+This project was made to learn some basics about Rust programming language and review parallel programming using TCP sockets.
 
 ## Usage
-Chatapp is build entirely as a single Rust workspace, so build is pretty straightforward:
+Chatapp is built entirely as a single Rust workspace, so build is pretty straightforward:
 
 ```bash
 # Clone the repo
@@ -16,7 +16,7 @@ cd chatapp
 cargo build --release
 ```
 
-The project includes two applications: client and server. First run the server:
+The workspace includes one shared library and two applications: client and server. First run the server:
 
 ```bash
 # run the server
@@ -29,12 +29,12 @@ In other terminal run the client and connect to the server by typing the server 
 cargo run -p client -r
 
 # inisde the application you wil be requested for the server address,you can type ":local"
-# to use the harcoded localhost:8080 for both server and client:
+# to use the hardcoded localhost:8080 for both server and client:
 :local
 ```
 
 After successfully connecting, every line you write inside the client application will be
-sent to the server and forawrded to all connected clients, including the sender. Due to sending serialized
+sent to the server and forwarded to every currently connected client, including the sender. Due to sending serialized
 custom Message enums (created to make message display coherent) using other applications (eg. Telnet) as clients 
 may not work.
 
