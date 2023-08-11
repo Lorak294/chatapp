@@ -9,9 +9,9 @@ use tokio::{
 
 #[tokio::main]
 async fn main() {
+    // connecting to a remote host
     let mut socket = TcpStream::connect(LOCAL_ADDRESS).await.unwrap();
     let myaddress = socket.local_addr().unwrap();
-    //let hostaddress = socket.peer_addr().unwrap();
     let (tx, mut rx) = mpsc::channel::<Message>(10);
 
     tokio::spawn(async move {
@@ -41,13 +41,12 @@ async fn main() {
         }
     });
 
-    println!("Write a message:");
     loop {
         let mut buff = String::new();
         io::stdin().read_line(&mut buff).unwrap();
+        print!("\r");
         let msg_str = buff.trim().to_string();
         let msg = Message::UserMessage(msg_str.clone(), myaddress);
-        msg.print();
 
         if msg_str == ":quit" || tx.send(msg).await.is_err() {
             break;

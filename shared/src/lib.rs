@@ -21,10 +21,12 @@ impl Message {
     }
 
     pub fn serialize(&self) -> String {
-        serde_json::to_string(self).unwrap()
+        let mut str = serde_json::to_string(self).unwrap();
+        str.push('\n');
+        str
     }
 
     pub fn deserialize(data: String) -> Message {
-        serde_json::from_str(&data).unwrap()
+        serde_json::from_str(data.trim()).unwrap()
     }
 }
