@@ -1,70 +1,80 @@
-use std::{
-    io::{self, ErrorKind, Read, Write},
+use std::io;
+
+use shared::{Message, LOCAL_ADDRESS};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
-    sync::mpsc::{self, TryRecvError},
-    thread,
-    time::Duration,
+    sync::mpsc,
 };
 
-//extern crate colored;
-use colored::*;
-
-const LOCAL: &str = "127.0.0.1:6000";
-const MSG_SIZE: usize = 64;
-
-fn sleep() {
-    thread::sleep(Duration::from_millis(100));
+// function to get connection address from the user
+fn read_host_address() -> String {
+    println!("Enter server address. (for local harcoded address just type \":local\"):");
+    let mut buff = String::new();
+    io::stdin().read_line(&mut buff).unwrap();
+    let msg_str = buff.trim();
+    if msg_str == ":local" {
+        return String::from(LOCAL_ADDRESS);
+    }
+    String::from(msg_str)
 }
 
-fn main() {
-    let mut client = TcpStream::connect(LOCAL).expect("Stream failed to connect.");
-    client
-        .set_nonblocking(true)
-        .expect("failed to initiate non-blocking mode.");
-
-    let (tx, rx) = mpsc::channel::<String>();
-
-    let _th = thread::spawn(move || loop {
-        let mut buff = vec![0; MSG_SIZE];
-
-        match client.read_exact(&mut buff) {
-            Ok(_) => {
-                let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
-                println!("message received: {:?}", msg);
-            }
-            Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
-            Err(_) => {
-                println!("Connection with server terminated.");
-                client
-                    .shutdown(std::net::Shutdown::Both)
-                    .expect("failed shutting down the connection.");
+#[tokio::main]
+async fn main() {
+    // connecting to a remote host
+    let mut socket;
+    loop {
+        let res = TcpStream::connect(&read_host_address()).await;
+        match res {
+            Ok(s) => {
+                socket = s;
                 break;
             }
-        }
-
-        match rx.try_recv() {
-            Ok(msg) => {
-                let mut buff = msg.clone().into_bytes();
-                buff.resize(MSG_SIZE, 0);
-                client.write_all(&buff).expect("writing to socket failed.");
-                println!("message sent: {}", msg.blue());
+            Err(_) => {
+                println!("Unable to connect to given address, try again.")
             }
-            Err(TryRecvError::Empty) => (),
-            Err(TryRecvError::Disconnected) => break,
         }
+    }
 
-        sleep();
+    //let mut socket = TcpStream::connect(LOCAL_ADDRESS).await.unwrap();
+    let myaddress = socket.local_addr().unwrap();
+    let (tx, mut rx) = mpsc::channel::<Message>(10);
+
+    tokio::spawn(async move {
+        loop {
+            let (reader, mut writer) = socket.split();
+            let mut reader = BufReader::new(reader);
+            let mut line = String::new();
+            tokio::select! {
+                // prinitng received message
+                res = reader.read_line(&mut line) => {
+                    let bytes_read = res.unwrap();
+                        if bytes_read == 0 {
+                            break;
+                        }
+                        let msg = Message::deserialize(line.clone());
+                        msg.print();
+                        line.clear();
+                }
+
+                // sending message transmited from stdin
+                res = rx.recv() => {
+
+                    let msg = res.unwrap();
+                    writer.write_all(msg.serialize().as_bytes()).await.unwrap();
+                }
+            }
+        }
     });
 
-    println!("Write a message:");
     loop {
         let mut buff = String::new();
-        io::stdin()
-            .read_line(&mut buff)
-            .expect("reading form stdin failed.");
-        let msg = buff.trim().to_string();
+        io::stdin().read_line(&mut buff).unwrap();
+        print!("\r");
+        let msg_str = buff.trim().to_string();
+        let msg = Message::UserMessage(msg_str.clone(), myaddress);
 
-        if msg == ":quit" || tx.send(msg).is_err() {
+        if msg_str == ":quit" || tx.send(msg).await.is_err() {
             break;
         }
     }
